@@ -289,9 +289,9 @@ func (wbs *InWorkspaceServiceServer) MountProc(ctx context.Context, req *api.Mou
 		return nil, xerrors.Errorf("cannot prepare proc-staging for container: %w", err)
 	}
 
-	mntout, err = exec.Command("mount", "--move", nodeStaging, containerStaging).CombinedOutput()
+	err = unix.Mount(nodeStaging, containerStaging, "", uintptr(unix.MS_MOVE), "")
 	if err != nil {
-		return nil, xerrors.Errorf("cannot move proc mount at %s: %w: %s", containerStaging, err, string(mntout))
+		return nil, xerrors.Errorf("cannot move proc mount to %s: %w", containerStaging, err)
 	}
 
 	workspaceStaging := filepath.Join("/.workspace", strings.TrimPrefix(containerStaging, wbs.Session.ServiceLocDaemon))

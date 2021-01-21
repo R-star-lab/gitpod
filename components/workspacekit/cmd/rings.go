@@ -218,7 +218,7 @@ var ring1Cmd = &cobra.Command{
 		unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(unix.SIGKILL), 0, 0, 0)
 		runtime.UnlockOSThread()
 
-		tmpdir, err := ioutil.TempDir("", "supervisor")
+		ring2Root, err := ioutil.TempDir("", "supervisor")
 		if err != nil {
 			log.WithError(err).Fatal("cannot create tempdir")
 		}
@@ -243,7 +243,7 @@ var ring1Cmd = &cobra.Command{
 			{Target: "/tmp", Source: "tmpfs", FSType: "tmpfs"},
 		}
 		for _, m := range mnts {
-			dst := filepath.Join(tmpdir, m.Target)
+			dst := filepath.Join(ring2Root, m.Target)
 			_ = os.MkdirAll(dst, 0644)
 
 			if m.Source == "" {
@@ -281,7 +281,7 @@ var ring1Cmd = &cobra.Command{
 			Pdeathsig:  syscall.SIGKILL,
 			Cloneflags: syscall.CLONE_NEWNS | syscall.CLONE_NEWPID,
 		}
-		cmd.Dir = tmpdir
+		cmd.Dir = ring2Root
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -294,7 +294,7 @@ var ring1Cmd = &cobra.Command{
 		sigc := sigproxy.ForwardAllSignals(context.Background(), cmd.Process.Pid)
 		defer sigproxysignal.StopCatch(sigc)
 
-		procLoc := filepath.Join(tmpdir, "proc")
+		procLoc := filepath.Join(ring2Root, "proc")
 		err = os.MkdirAll(procLoc, 0755)
 		if err != nil {
 			log.WithError(err).Error("cannot mount proc")
@@ -309,12 +309,9 @@ var ring1Cmd = &cobra.Command{
 			failed = true
 			return
 		}
-
-		// TODO(cw): this mount doesn't work because we need to be in the ring2 mount namespace.
-		// Use nsenter/mount handler to do this.
 		err = unix.Mount(resp.Location, procLoc, "", unix.MS_MOVE, "")
 		if err != nil {
-			log.WithError(err).WithFields(map[string]interface{}{"loc": resp.Location, "dest": procLoc}).Error("cannot move proc mount")
+			log.WithError(err).Error("cannot move proc")
 			failed = true
 			return
 		}
@@ -364,7 +361,7 @@ var ring1Cmd = &cobra.Command{
 		log.Info("signaling to child process")
 		_, err = msgutil.MarshalToWriter(ring2Conn, ringSyncMsg{
 			Stage:  1,
-			Rootfs: tmpdir,
+			Rootfs: ring2Root,
 		})
 		if err != nil {
 			log.WithError(err).Error("cannot send ring sync msg to ring2")
@@ -383,7 +380,7 @@ var ring1Cmd = &cobra.Command{
 		if scmpfd == 0 {
 			log.Warn("received 0 as ring2 seccomp fd - syscall handling is broken")
 		} else {
-			stp, errchan := seccomp.Handle(scmpfd, cmd.Process.Pid, client)
+			stp, errchan := seccomp.Handle(scmpfd, cmd.Process.Pid, ring2Staging, client)
 			defer close(stp)
 			go func() {
 				t := time.NewTicker(10 * time.Millisecond)

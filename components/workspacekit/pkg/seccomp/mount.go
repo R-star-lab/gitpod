@@ -7,18 +7,20 @@ package seccomp
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"math/rand"
+	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/gitpod-io/gitpod/common-go/log"
+	"github.com/gitpod-io/gitpod/workspacekit/pkg/nsenter"
 	"github.com/gitpod-io/gitpod/workspacekit/pkg/readarg"
 	daemonapi "github.com/gitpod-io/gitpod/ws-daemon/api"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"golang.org/x/sys/unix"
 )
 
-func handleMount(req *libseccomp.ScmpNotifReq, daemon daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool) {
+func handleMount(req *libseccomp.ScmpNotifReq, stagingDir string, daemon daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool) {
 	log := log.WithField("syscall", "mount")
 
 	memFile, err := readarg.OpenMem(req.Pid)
@@ -59,18 +61,6 @@ func handleMount(req *libseccomp.ScmpNotifReq, daemon daemonapi.InWorkspaceServi
 		// "data":   data,
 	}).Info("handling mount syscall")
 	if filesystem == "proc" {
-		target, err := filepath.EvalSymlinks(filepath.Join(fmt.Sprintf("/proc/%d/root", req.Pid), dest))
-		if err != nil {
-			log.WithField("pid", req.Pid).WithField("dest", dest).WithError(err).Error("cannot resolve dest")
-			return returnErrno(unix.ENOENT)
-		}
-
-		tmpdir, err := ioutil.TempDir("", "proc-mount-*")
-		if err != nil {
-			log.WithField("pid", req.Pid).WithField("dest", dest).WithError(err).Error("cannot create tmp dir")
-			return returnErrno(unix.ENOENT)
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		resp, err := daemon.MountProc(ctx, &daemonapi.MountProcRequest{
@@ -81,9 +71,9 @@ func handleMount(req *libseccomp.ScmpNotifReq, daemon daemonapi.InWorkspaceServi
 			return returnErrno(unix.EFAULT)
 		}
 
-		err = unix.Mount(resp.Location, target, "", unix.MS_MOVE, "")
+		err = MoveMountIntoRing2(int(req.Pid), resp.Location, stagingDir, dest)
 		if err != nil {
-			log.WithField("pid", req.Pid).WithField("dest", dest).WithField("target", target).WithField("tmpdir", tmpdir).WithError(err).Error("cannot move proc")
+			log.WithField("pid", req.Pid).WithField("dest", dest).WithField("loc", resp.Location).WithError(err).Error("cannot move proc")
 			return returnErrno(unix.EFAULT)
 		}
 	} else {
@@ -91,4 +81,25 @@ func handleMount(req *libseccomp.ScmpNotifReq, daemon daemonapi.InWorkspaceServi
 	}
 
 	return returnSuccess()
+}
+
+// MoveMountIntoMountNS moves a mount from source, via staging to dest.
+// dest is a path as seen from ring2. staging is expected to be visible inside ring2 as `/.staging`
+func MoveMountIntoRing2(pid int, source, staging, dest string) error {
+	var (
+		err error
+
+		id     = fmt.Sprint(rand.Uint32())
+		staged = filepath.Join(staging, id)
+	)
+	err = os.MkdirAll(staged, 0755)
+	if err != nil {
+		return err
+	}
+	err = unix.Mount(source, staged, "", unix.MS_MOVE, "")
+	if err != nil {
+		return err
+	}
+
+	return nsenter.Mount(pid, filepath.Join("/.staging", id), dest, unix.MS_MOVE, "")
 }
