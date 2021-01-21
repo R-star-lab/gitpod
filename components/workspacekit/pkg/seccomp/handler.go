@@ -14,7 +14,7 @@ import (
 	libseccomp "github.com/seccomp/libseccomp-golang"
 )
 
-type syscallHandler func(req *libseccomp.ScmpNotifReq, stagingDir string, daemon daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool)
+type syscallHandler func(req *libseccomp.ScmpNotifReq, daemon daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool)
 
 var handledSyscalls = map[string]syscallHandler{
 	"mount": handleMount,
@@ -64,7 +64,7 @@ func LoadFilter() (libseccomp.ScmpFd, error) {
 
 // Handle actually listens on the seccomp notif FD and handles incoming requests.
 // This function returns when the notif FD is closed.
-func Handle(fd libseccomp.ScmpFd, targetPID int, stagingDir string, daemon daemonapi.InWorkspaceServiceClient) (stop chan<- struct{}, errchan <-chan error) {
+func Handle(fd libseccomp.ScmpFd, targetPID int, daemon daemonapi.InWorkspaceServiceClient) (stop chan<- struct{}, errchan <-chan error) {
 	ec := make(chan error)
 	stp := make(chan struct{})
 
@@ -111,7 +111,7 @@ func Handle(fd libseccomp.ScmpFd, targetPID int, stagingDir string, daemon daemo
 			if !ok {
 				handler = handleUnknownSyscall
 			}
-			val, errno, cont = handler(req, stagingDir, daemon)
+			val, errno, cont = handler(req, daemon)
 
 			var flags uint32
 			if cont {
@@ -132,7 +132,7 @@ func Handle(fd libseccomp.ScmpFd, targetPID int, stagingDir string, daemon daemo
 	return stp, ec
 }
 
-func handleUnknownSyscall(req *libseccomp.ScmpNotifReq, stagingDir string, _ daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool) {
+func handleUnknownSyscall(req *libseccomp.ScmpNotifReq, _ daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool) {
 	nme, _ := req.Data.Syscall.GetName()
 	log.WithField("syscall", nme).Warn("don't know how to handle this syscall")
 	return 0, 1, false

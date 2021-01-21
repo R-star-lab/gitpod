@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gitpod-io/gitpod/common-go/log"
+	"github.com/gitpod-io/gitpod/workspacekit/pkg/nsenter"
 	"github.com/gitpod-io/gitpod/workspacekit/pkg/seccomp"
 	daemonapi "github.com/gitpod-io/gitpod/ws-daemon/api"
 
@@ -309,7 +310,7 @@ var ring1Cmd = &cobra.Command{
 			failed = true
 			return
 		}
-		err = unix.Mount(resp.Location, procLoc, "", unix.MS_MOVE, "")
+		err = nsenter.Mount(cmd.Process.Pid, resp.Location, procLoc, "", unix.MS_MOVE, "")
 		if err != nil {
 			log.WithError(err).Error("cannot move proc")
 			failed = true
@@ -380,7 +381,7 @@ var ring1Cmd = &cobra.Command{
 		if scmpfd == 0 {
 			log.Warn("received 0 as ring2 seccomp fd - syscall handling is broken")
 		} else {
-			stp, errchan := seccomp.Handle(scmpfd, cmd.Process.Pid, ring2Staging, client)
+			stp, errchan := seccomp.Handle(scmpfd, cmd.Process.Pid, client)
 			defer close(stp)
 			go func() {
 				t := time.NewTicker(10 * time.Millisecond)
@@ -531,6 +532,7 @@ var ring2Cmd = &cobra.Command{
 			failed = true
 			return
 		}
+
 		err = unix.Exec(ring2Opts.SupervisorPath, []string{"supervisor", "run", "--inns"}, os.Environ())
 		if err != nil {
 			log.WithError(err).WithField("cmd", ring2Opts.SupervisorPath).Error("cannot exec")

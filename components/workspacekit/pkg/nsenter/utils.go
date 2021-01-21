@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 
+	"github.com/gitpod-io/gitpod/common-go/log"
 	"golang.org/x/sys/unix"
 )
 
@@ -34,8 +35,8 @@ func Run(pid int, args []string, preflight func() error, enterNamespace ...Names
 		{"_LIBNSENTER_ROOTFD", fmt.Sprintf("/proc/%d/root", pid), unix.O_PATH, -1},
 		{"_LIBNSENTER_CWDFD", fmt.Sprintf("/proc/%d/cwd", pid), unix.O_PATH, -1},
 		{"_LIBNSENTER_MNTNSFD", fmt.Sprintf("/proc/%d/ns/mnt", pid), os.O_RDONLY, NamespaceMount},
-		{"_LIBNSENTER_MNTNSFD", fmt.Sprintf("/proc/%d/ns/net", pid), os.O_RDONLY, NamespaceNet},
-		{"_LIBNSENTER_MNTNSFD", fmt.Sprintf("/proc/%d/ns/pid", pid), os.O_RDONLY, NamespacePID},
+		{"_LIBNSENTER_NETNSFD", fmt.Sprintf("/proc/%d/ns/net", pid), os.O_RDONLY, NamespaceNet},
+		{"_LIBNSENTER_PIDNSFD", fmt.Sprintf("/proc/%d/ns/pid", pid), os.O_RDONLY, NamespacePID},
 	}
 
 	stdioFdCount := 3
@@ -62,23 +63,29 @@ func Run(pid int, args []string, preflight func() error, enterNamespace ...Names
 			return fmt.Errorf("cannot open %s: %w", ns.Source, err)
 		}
 		defer f.Close()
-		cmd.Env = append(cmd.Env, fmt.Sprint(stdioFdCount+len(cmd.ExtraFiles)))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%d", ns.Env, stdioFdCount+len(cmd.ExtraFiles)))
 		cmd.ExtraFiles = append(cmd.ExtraFiles, f)
 	}
 
-	out, err := cmd.CombinedOutput()
+	log.WithField("env", cmd.Env).WithField("extraFiles", len(cmd.ExtraFiles)).WithField("args", args).WithField("pid", pid).Debug("calling handler")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("cannot start handler: %w: %s", err, string(out))
+		return fmt.Errorf("cannot run handler: %w", err)
 	}
 	return nil
 }
 
 // Mount executes mount in the mount namespace of PID
-func Mount(pid int, source, target string, flags int, data string) error {
+func Mount(pid int, source, target string, fstype string, flags int, data string) error {
 	args := []string{"mount",
 		"--source", source,
 		"--target", target,
 		"--flags", strconv.Itoa(flags),
+	}
+	if fstype != "" {
+		args = append(args, "--fstype", fstype)
 	}
 	if data != "" {
 		args = append(args, "--data", data)

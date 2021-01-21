@@ -108,7 +108,7 @@ void nsexec(void)
 		bail("failed to set process as non-dumpable");
 
 	/* For debugging. */
-	prctl(PR_SET_NAME, (unsigned long)"seccompagent:[CHILD]", 0, 0, 0);
+	prctl(PR_SET_NAME, (unsigned long)"workspacekit:[CHILD]", 0, 0, 0);
 
 	char *mntnsfd = getenv("_LIBNSENTER_MNTNSFD");
 	if (mntnsfd != NULL) {

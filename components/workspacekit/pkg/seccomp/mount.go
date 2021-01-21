@@ -6,21 +6,16 @@ package seccomp
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/gitpod-io/gitpod/common-go/log"
-	"github.com/gitpod-io/gitpod/workspacekit/pkg/nsenter"
 	"github.com/gitpod-io/gitpod/workspacekit/pkg/readarg"
 	daemonapi "github.com/gitpod-io/gitpod/ws-daemon/api"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"golang.org/x/sys/unix"
 )
 
-func handleMount(req *libseccomp.ScmpNotifReq, stagingDir string, daemon daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool) {
+func handleMount(req *libseccomp.ScmpNotifReq, daemon daemonapi.InWorkspaceServiceClient) (val uint64, errno int32, cont bool) {
 	log := log.WithField("syscall", "mount")
 
 	memFile, err := readarg.OpenMem(req.Pid)
@@ -71,7 +66,7 @@ func handleMount(req *libseccomp.ScmpNotifReq, stagingDir string, daemon daemona
 			return returnErrno(unix.EFAULT)
 		}
 
-		err = MoveMountIntoRing2(int(req.Pid), resp.Location, stagingDir, dest)
+		err = unix.Mount(resp.Location, dest, "", unix.MS_MOVE, "")
 		if err != nil {
 			log.WithField("pid", req.Pid).WithField("dest", dest).WithField("loc", resp.Location).WithError(err).Error("cannot move proc")
 			return returnErrno(unix.EFAULT)
@@ -81,25 +76,4 @@ func handleMount(req *libseccomp.ScmpNotifReq, stagingDir string, daemon daemona
 	}
 
 	return returnSuccess()
-}
-
-// MoveMountIntoMountNS moves a mount from source, via staging to dest.
-// dest is a path as seen from ring2. staging is expected to be visible inside ring2 as `/.staging`
-func MoveMountIntoRing2(pid int, source, staging, dest string) error {
-	var (
-		err error
-
-		id     = fmt.Sprint(rand.Uint32())
-		staged = filepath.Join(staging, id)
-	)
-	err = os.MkdirAll(staged, 0755)
-	if err != nil {
-		return err
-	}
-	err = unix.Mount(source, staged, "", unix.MS_MOVE, "")
-	if err != nil {
-		return err
-	}
-
-	return nsenter.Mount(pid, filepath.Join("/.staging", id), dest, unix.MS_MOVE, "")
 }
