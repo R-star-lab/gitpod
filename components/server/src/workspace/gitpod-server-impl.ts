@@ -62,6 +62,9 @@ import { MessageBusIntegration } from './messagebus-integration';
 import { WorkspaceDeletionService } from './workspace-deletion-service';
 import { WorkspaceFactory } from './workspace-factory';
 import { WorkspaceStarter } from './workspace-starter';
+import { BlobRef, UploadUrlRequest, UploadUrlResponse, DownloadUrlRequest, DownloadUrlResponse } from '@gitpod/content-service/lib/blobs_pb';
+import { BlobServiceClient } from "@gitpod/content-service/lib/blobs_grpc_pb";
+import * as grpc from "grpc";
 
 
 @injectable()
@@ -1319,6 +1322,72 @@ export class GitpodServerImpl<Client extends GitpodClient, Server extends Gitpod
             userId: user.id,
         };
         await this.userDB.deleteEnvVar(envvar);
+    }
+
+    public async getContentBlobUploadUrl(name: string, mediaType?: string, timeToLive?: string): Promise<string> {
+        const user = this.checkAndBlockUser("getContentBlobUploadUrl");
+        const blobRef = new BlobRef();
+        blobRef.setName(name);
+        blobRef.setOwnerId(user.id);
+
+        const uploadUrlRequest = new UploadUrlRequest();
+        uploadUrlRequest.setRef(blobRef);
+        uploadUrlRequest.setMediaType(mediaType || "application/octet-stream");
+        uploadUrlRequest.setTimeToLive(timeToLive || "");
+
+        log.debug(`getContentBlobUploadUrl ${JSON.stringify(uploadUrlRequest)}`)
+
+        // TODO: Improve client handling and request execution
+        const client = new BlobServiceClient("content-service:8080", grpc.credentials.createInsecure());
+        const uploadUrlPromise = new Promise<UploadUrlResponse>((resolve, reject) => {
+            client.uploadUrl(uploadUrlRequest, (err: any, resp: UploadUrlResponse) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(resp);
+                }
+            });
+        });
+        try {
+            const resp = (await uploadUrlPromise).toObject();
+            return resp.url
+        } catch (err) {
+            log.error("bloberror", err);
+            throw err;
+        } finally {
+            client.close();
+        }
+    }
+
+    public async getContentBlobDownloadUrl(name: string): Promise<string> {
+        const user = this.checkAndBlockUser("getContentBlobDownloadUrl");
+        const blobRef = new BlobRef();
+        blobRef.setName(name);
+        blobRef.setOwnerId(user.id);
+
+        const downloadUrlRequest = new DownloadUrlRequest();
+        downloadUrlRequest.setRef(blobRef);
+
+        // TODO: Improve client handling and request execution
+        const client = new BlobServiceClient("content-service:8080", grpc.credentials.createInsecure());
+        const downloadUrlPromise = new Promise<DownloadUrlResponse>((resolve, reject) => {
+            client.downloadUrl(downloadUrlRequest, (err: any, resp: DownloadUrlResponse) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(resp);
+                }
+            });
+        });
+        try {
+            const resp = (await downloadUrlPromise).toObject();
+            return resp.url
+        } catch (err) {
+            log.error("bloberror", err);
+            throw err;
+        } finally {
+            client.close();
+        }
     }
 
     public async getGitpodTokens(): Promise<GitpodToken[]> {

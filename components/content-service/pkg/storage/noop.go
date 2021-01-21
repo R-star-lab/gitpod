@@ -66,7 +66,22 @@ func (*PresignedNoopStorage) SignDownload(ctx context.Context, bucket, obj strin
 	return nil, ErrNotFound
 }
 
+// SignUpload describes an object for upload
+func (s *PresignedNoopStorage) SignUpload(ctx context.Context, bucket, obj string) (info *UploadInfo, err error) {
+	return nil, ErrNotFound
+}
+
+// DeleteObject deletes an object - if the object is not found, ErrNotFound is returned
+func (s *PresignedNoopStorage) DeleteObject(ctx context.Context, bucket, obj string) (err error) {
+	return ErrNotFound
+}
+
 // Bucket returns an empty string
 func (*PresignedNoopStorage) Bucket(string) string {
 	return ""
+}
+
+// BlobObject returns a blob's object name
+func (*PresignedNoopStorage) BlobObject(name string) (string, error) {
+	return "", nil
 }

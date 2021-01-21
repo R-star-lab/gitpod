@@ -238,6 +238,38 @@ func (service *HTTPTheiaService) DeleteEnvVar(params DeleteEnvvarRequest) (*Dele
 	return &res, nil
 }
 
+// GetContentBlobUploadUrl returns a upload URL
+func (service *HTTPTheiaService) GetContentBlobUploadUrl(params GetContentBlobUploadUrlRequest) (*GetContentBlobUploadUrlResponse, error) {
+	req := request{Method: "getContentBlobUploadUrl", Params: params}
+	rawResult, err := service.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var res GetContentBlobUploadUrlResponse
+	err = json.Unmarshal(rawResult, &res)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// GetContentBlobDownloadUrl returns a download URL
+func (service *HTTPTheiaService) GetContentBlobDownloadUrl(params GetContentBlobDownloadUrlRequest) (*GetContentBlobDownloadUrlResponse, error) {
+	req := request{Method: "getContentBlobDownloadUrl", Params: params}
+	rawResult, err := service.sendRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var res GetContentBlobDownloadUrlResponse
+	err = json.Unmarshal(rawResult, &res)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 // GetPortURL returns the public, outward-facing URL of a port
 func (service *HTTPTheiaService) GetPortURL(params GetPortURLRequest) (*GetPortURLResponse, error) {
 	req := request{Method: "getPortURL", Params: params}

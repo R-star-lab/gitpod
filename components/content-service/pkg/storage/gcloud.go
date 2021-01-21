@@ -736,6 +736,11 @@ func (p *PresignedGCPStorage) Bucket(owner string) string {
 	return gcpBucketName(p.stage, owner)
 }
 
+// BlobObject returns a blob's object name
+func (s *PresignedGCPStorage) BlobObject(name string) (string, error) {
+	return blobObjectName(name)
+}
+
 // SignDownload provides presigned URLs to access remote storage objects
 func (p *PresignedGCPStorage) SignDownload(ctx context.Context, bucket, object string) (*DownloadInfo, error) {
 	client, err := newGCPClient(ctx, p.config)
@@ -767,6 +772,18 @@ func (p *PresignedGCPStorage) SignDownload(ctx context.Context, bucket, object s
 	}
 
 	return res, nil
+}
+
+// SignUpload describes an object for upload
+func (s *PresignedGCPStorage) SignUpload(ctx context.Context, bucket, obj string) (info *UploadInfo, err error) {
+	// TODO: implement me
+	return nil, ErrNotFound
+}
+
+// DeleteObject deletes an object - if the object is not found, ErrNotFound is returned
+func (s *PresignedGCPStorage) DeleteObject(ctx context.Context, bucket, obj string) (err error) {
+	// TODO: implement me
+	return ErrNotFound
 }
 
 func (p *PresignedGCPStorage) downloadInfo(ctx context.Context, client *gcpstorage.Client, obj *gcpstorage.ObjectAttrs) (*DownloadInfo, error) {

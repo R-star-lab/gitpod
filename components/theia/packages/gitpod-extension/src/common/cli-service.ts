@@ -79,6 +79,24 @@ export interface SetEnvvarRequest {
 export interface SetEnvvarResponse {
 }
 
+export interface GetContentBlobUploadUrlRequest {
+    name: string
+    mediaType?: string
+    timeToLive?: string
+}
+
+export interface GetContentBlobUploadUrlResponse {
+    url: string
+}
+
+export interface GetContentBlobDownloadUrlRequest {
+    name: string
+}
+
+export interface GetContentBlobDownloadUrlResponse {
+    url: string
+}
+
 export interface TheiaCLIService {
     deleteEnvVar(arg0: DeleteEnvvarRequest): Promise<DeleteEnvvarResponse>
     getEnvVars(arg0: GetEnvvarsRequest): Promise<GetEnvvarsResponse>
@@ -88,5 +106,7 @@ export interface TheiaCLIService {
     openFile(arg0: OpenFileRequest): Promise<OpenFileResponse>
     openPreview(arg0: OpenPreviewRequest): Promise<OpenPreviewResponse>
     setEnvVar(arg0: SetEnvvarRequest): Promise<SetEnvvarResponse>
+    getContentBlobUploadUrl(arg0: GetContentBlobUploadUrlRequest): Promise<GetContentBlobUploadUrlResponse>
+    getContentBlobDownloadUrl(arg0: GetContentBlobDownloadUrlRequest): Promise<GetContentBlobDownloadUrlResponse>
 }
 

@@ -68,6 +68,7 @@ import { MonitoringEndpointsApp } from './monitoring-endpoints';
 import { BearerAuth } from './auth/bearer-authenticator';
 import { TermsProvider } from './terms/terms-provider';
 import { TosCookie } from './user/tos-cookie';
+import { BlobsController } from './blobs/blobs-controller';
 
 export const productionContainerModule = new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(Env).toSelf().inSingletonScope();
@@ -197,4 +198,6 @@ export const productionContainerModule = new ContainerModule((bind, unbind, isBo
     bind(BearerAuth).toSelf().inSingletonScope();
 
     bind(TermsProvider).toSelf().inSingletonScope();
+
+    bind(BlobsController).toSelf().inSingletonScope();
 });

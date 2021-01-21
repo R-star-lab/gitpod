@@ -5,7 +5,7 @@
  */
 
 import { injectable } from 'inversify';
-import { TheiaCLIService, OpenFileRequest, OpenFileResponse, OpenPreviewRequest, OpenPreviewResponse, GetGitTokenRequest, GetGitTokenResponse, GetEnvvarsRequest, GetEnvvarsResponse, SetEnvvarRequest, SetEnvvarResponse, DeleteEnvvarRequest, DeleteEnvvarResponse, IsFileOpenRequest, IsFileOpenResponse, GetPortURLRequest, GetPortURLResponse } from '../common/cli-service';
+import { TheiaCLIService, OpenFileRequest, OpenFileResponse, OpenPreviewRequest, OpenPreviewResponse, GetGitTokenRequest, GetGitTokenResponse, GetEnvvarsRequest, GetEnvvarsResponse, SetEnvvarRequest, SetEnvvarResponse, DeleteEnvvarRequest, DeleteEnvvarResponse, IsFileOpenRequest, IsFileOpenResponse, GetPortURLRequest, GetPortURLResponse, GetContentBlobUploadUrlRequest, GetContentBlobUploadUrlResponse, GetContentBlobDownloadUrlRequest, GetContentBlobDownloadUrlResponse } from '../common/cli-service';
 import { JsonRpcServer } from '@theia/core';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 
@@ -92,6 +92,16 @@ export class CliServiceServerImpl implements CliServiceServer {
     async deleteEnvVar(params: DeleteEnvvarRequest): Promise<DeleteEnvvarResponse> {
         await this.firstClientConnected.promise;
         return await this.clients[0].deleteEnvVar(params);
+    }
+
+    async getContentBlobUploadUrl(params: GetContentBlobUploadUrlRequest): Promise<GetContentBlobUploadUrlResponse> {
+        await this.firstClientConnected.promise
+        return await this.clients[0].getContentBlobUploadUrl(params);
+    }
+
+    async getContentBlobDownloadUrl(params: GetContentBlobDownloadUrlRequest): Promise<GetContentBlobDownloadUrlResponse> {
+        await this.firstClientConnected.promise
+        return await this.clients[0].getContentBlobDownloadUrl(params);
     }
 
     async isFileOpen(params: IsFileOpenRequest): Promise<IsFileOpenResponse> {

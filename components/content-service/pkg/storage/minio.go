@@ -299,6 +299,12 @@ func (s *presignedMinIOStorage) SignDownload(ctx context.Context, bucket, object
 	if err != nil {
 		return nil, translateMinioError(err)
 	}
+	// tags := &tags.Tags{}
+	// err = tags.Set("LastRead", time.Now().String())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// s.client.PutObjectTagging(ctx, bucket, object, tags, minio.PutObjectTaggingOptions{})
 	span.LogKV("stat", stat)
 	return &DownloadInfo{
 		Meta: ObjectMeta{
@@ -312,6 +318,46 @@ func (s *presignedMinIOStorage) SignDownload(ctx context.Context, bucket, object
 	}, nil
 }
 
+// SignUpload describes an object for upload
+func (s *presignedMinIOStorage) SignUpload(ctx context.Context, bucket, obj string) (info *UploadInfo, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "minio.SignUpload")
+	defer func() {
+		if err == ErrNotFound {
+			span.LogKV("found", false)
+			tracing.FinishSpan(span, nil)
+			return
+		}
+
+		tracing.FinishSpan(span, &err)
+	}()
+
+	url, err := s.client.PresignedPutObject(ctx, bucket, obj, 30*time.Minute)
+	if err != nil {
+		return nil, translateMinioError(err)
+	}
+	return &UploadInfo{URL: url.String()}, nil
+}
+
+// DeleteObject deletes an object - if the object is not found, ErrNotFound is returned
+func (s *presignedMinIOStorage) DeleteObject(ctx context.Context, bucket, obj string) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "minio.DeleteObject")
+	defer func() {
+		if err == ErrNotFound {
+			span.LogKV("found", false)
+			tracing.FinishSpan(span, nil)
+			return
+		}
+
+		tracing.FinishSpan(span, &err)
+	}()
+
+	err = s.client.RemoveObject(ctx, bucket, obj, minio.RemoveObjectOptions{})
+	if err != nil {
+		return translateMinioError(err)
+	}
+	return nil
+}
+
 func annotationToAmzMetaHeader(annotation string) string {
 	return http.CanonicalHeaderKey(fmt.Sprintf("X-Amz-Meta-%s", annotation))
 }
@@ -319,6 +365,11 @@ func annotationToAmzMetaHeader(annotation string) string {
 // Bucket provides the bucket name for a particular user
 func (s *presignedMinIOStorage) Bucket(ownerID string) string {
 	return minioBucketName(ownerID)
+}
+
+// BlobObject returns a blob's object name
+func (s *presignedMinIOStorage) BlobObject(name string) (string, error) {
+	return blobObjectName(name)
 }
 
 func translateMinioError(err error) error {

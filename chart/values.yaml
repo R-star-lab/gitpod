@@ -160,6 +160,23 @@ components:
         containerPort: 32224
         servicePort: 4000
 
+  contentService:
+    name: "content-service"
+    disabled: false
+    resources:
+      cpu: 100m
+      memory: 32Mi
+    ports:
+      rpc:
+        expose: true
+        containerPort: 8080
+      metrics:
+        expose: false
+        containerPort: 9500
+    remoteStorage:
+      kind: minio
+      minio: {}
+
   dbMigrations:
     enabled: true
     name: db-migrations

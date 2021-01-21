@@ -11,7 +11,7 @@ import URI from '@theia/core/lib/common/uri';
 import { EditorManager, EditorWidget } from '@theia/editor/lib/browser';
 import { MiniBrowserOpenHandler } from '@theia/mini-browser/lib/browser/mini-browser-open-handler';
 import { inject, injectable } from 'inversify';
-import { DeleteEnvvarRequest, DeleteEnvvarResponse, EnvironmentVariable, GetEnvvarsRequest, GetEnvvarsResponse, GetGitTokenRequest, GetGitTokenResponse, GetPortURLRequest, GetPortURLResponse, IsFileOpenRequest, IsFileOpenResponse, OpenFileRequest, OpenFileResponse, OpenPreviewRequest, OpenPreviewResponse, SetEnvvarRequest, SetEnvvarResponse, TheiaCLIService } from '../common/cli-service';
+import { DeleteEnvvarRequest, DeleteEnvvarResponse, EnvironmentVariable, GetEnvvarsRequest, GetEnvvarsResponse, GetGitTokenRequest, GetGitTokenResponse, GetPortURLRequest, GetPortURLResponse, IsFileOpenRequest, IsFileOpenResponse, OpenFileRequest, OpenFileResponse, OpenPreviewRequest, OpenPreviewResponse, SetEnvvarRequest, SetEnvvarResponse, TheiaCLIService, GetContentBlobUploadUrlRequest, GetContentBlobUploadUrlResponse, GetContentBlobDownloadUrlRequest, GetContentBlobDownloadUrlResponse } from '../common/cli-service';
 import { GitpodInfoService } from '../common/gitpod-info';
 import { GitpodGitTokenProvider } from './gitpod-git-token-provider';
 import { GitpodServiceProvider } from './gitpod-service-provider';
@@ -108,6 +108,31 @@ export class CliServiceClientImpl implements CliServiceClient {
             deleted: candidates.map(v => v.name),
             notDeleted: matchedVariables.filter(v => !v.id).map(v => v.name)
         };
+    }
+
+    async getContentBlobUploadUrl(params: GetContentBlobUploadUrlRequest): Promise<GetContentBlobUploadUrlResponse> {
+        const service = this.serviceProvider.getService();
+        const blobName = await this.cacheBlobName(params.name);
+        const url = await service.server.getContentBlobUploadUrl(blobName, params.mediaType, params.timeToLive);
+        return { url };
+    }
+
+    async getContentBlobDownloadUrl(params: GetContentBlobDownloadUrlRequest): Promise<GetContentBlobDownloadUrlResponse> {
+        const service = this.serviceProvider.getService();
+        const blobName = await this.cacheBlobName(params.name);
+        const url = await service.server.getContentBlobDownloadUrl(blobName);
+        return { url };
+    }
+
+    private async cacheBlobName(name: string) {
+        const service = this.serviceProvider.getService();
+        const repinfo = await this.getRepo(service.server);
+        if (!repinfo) {
+            throw new Error("cannot get repo information");
+        }
+        const { owner, repo } = repinfo;
+        const blobName = `cache/${owner}_-_${repo}_-_${name}.tgz`;
+        return blobName;
     }
 
     async isFileOpen(params: IsFileOpenRequest): Promise<IsFileOpenResponse> {

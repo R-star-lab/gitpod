@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
+	github.com/bmatcuk/doublestar/v2 v2.0.4
 	github.com/golang/mock v1.4.4
 	github.com/google/tcpproxy v0.0.0-20180808230851-dfa16c61dad2
 	github.com/gorilla/handlers v1.4.2

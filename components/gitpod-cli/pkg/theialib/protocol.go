@@ -94,6 +94,24 @@ type EnvironmentVariable struct {
 	Value string `json:"value"`
 }
 
+type GetContentBlobUploadUrlRequest struct {
+	Name       string `json:"name"`
+	MediaType  string `json:"mediaType"`
+	TimeToLive string `json:"timeToLive"`
+}
+
+type GetContentBlobUploadUrlResponse struct {
+	Url string `json:"url"`
+}
+
+type GetContentBlobDownloadUrlRequest struct {
+	Name string `json:"name"`
+}
+
+type GetContentBlobDownloadUrlResponse struct {
+	Url string `json:"url"`
+}
+
 // GetPortURLRequest requests the public, outward-facing URL for a port
 type GetPortURLRequest struct {
 	Port uint16 `json:"port"`
